@@ -45,6 +45,9 @@ const envSchema = z
     MAIL_FROM_ADDRESS: z.string().default("admin@isupportbd.com"),
     MAIL_USERNAME: z.string().default("admin@isupportbd.com"),
     MAIL_PASSWORD: z.string().default(""),
+    ADMIN_NAME: z.string().optional().default("Administrator"),
+    ADMIN_EMAIL: z.string().optional().default(""),
+    ADMIN_PASSWORD: z.string().optional().default(""),
     OPEN_API: z
       .string()
       .default("true")
