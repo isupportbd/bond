@@ -48,6 +48,7 @@ const envSchema = z.object({
   MAIL_PORT: z.coerce.number().default(465),
   MAIL_ENCRYPTION: z.enum(["none", "ssl", "tls"]).default("ssl"),
   MAIL_FROM_ADDRESS: z.string().default("admin@isupportbd.com"),
+  MAIL_FROM_NAME: z.string().default("Bond Analytics"),
   MAIL_USERNAME: z.string().default("admin@isupportbd.com"),
   MAIL_PASSWORD: z.string().default(""),
   ADMIN_NAME: z.string().optional().default("Administrator"),

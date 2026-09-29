@@ -11,14 +11,19 @@ type MailPayload = {
 };
 
 function getTransporter() {
+  const isSsl = mailConfig.encryption === "ssl" || Number(mailConfig.port) === 465;
   return nodemailer.createTransport({
     host: mailConfig.host,
-    port: mailConfig.port,
-    secure: mailConfig.encryption === "ssl" || mailConfig.port === 465,
+    port: Number(mailConfig.port),
+    secure: isSsl,
     auth: mailConfig.username ? { user: mailConfig.username, pass: mailConfig.password } : undefined,
     tls: {
-      rejectUnauthorized: false
-    }
+      rejectUnauthorized: false,
+      servername: mailConfig.host
+    },
+    connectionTimeout: 10000,
+    greetingTimeout: 10000,
+    socketTimeout: 15000
   });
 }
 

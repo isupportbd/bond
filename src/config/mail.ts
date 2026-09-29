@@ -13,7 +13,7 @@ export const mailConfig = {
   encryption: env.MAIL_ENCRYPTION || "ssl",
   username: env.MAIL_USERNAME || "admin@isupportbd.com",
   password: env.MAIL_PASSWORD || "",
-  fromAddress: env.MAIL_FROM_ADDRESS || "Bond Analytics <admin@isupportbd.com>",
+  fromAddress: `"${env.MAIL_FROM_NAME || "Bond Analytics"}" <${env.MAIL_FROM_ADDRESS || "admin@isupportbd.com"}>`,
   failSilent: true,
   maildev: {
     smtpPort: 1089,
