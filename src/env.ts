@@ -4,7 +4,7 @@ import { z } from "zod";
 
 expand(config({ override: true }));
 
-const defaultPort = process.env.APP_PORT || process.env.PORT || "3000";
+const defaultPort = process.env.PORT || process.env.APP_PORT || "3000";
 const defaultUrl =
   process.env.APP_URL ||
   process.env.COOLIFY_URL ||

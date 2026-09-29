@@ -32,8 +32,6 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 ENV APP_ENV=production
-ENV APP_PORT=3000
-ENV PORT=3000
 ENV UI=true
 
 # Copy built application and modules from builder
@@ -48,12 +46,12 @@ COPY --from=builder /app/docker-entrypoint.sh ./docker-entrypoint.sh
 # Ensure execute permissions on entrypoint
 RUN chmod +x /app/docker-entrypoint.sh
 
-# Expose default HTTP port
-EXPOSE 3000
+# Expose HTTP port
+EXPOSE 3000 80
 
 # Healthcheck to report green status in Coolify
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD curl -f http://localhost:3000/health || exit 1
+  CMD curl -f http://localhost:${PORT:-3000}/health || curl -f http://localhost:3000/health || exit 1
 
 # Run entrypoint script
 ENTRYPOINT ["/app/docker-entrypoint.sh"]
