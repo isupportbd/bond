@@ -8,6 +8,7 @@ import { bootQueueJobs } from "@/framework/queue/queue.js";
 import { setupQueueDashboard } from "@/framework/queue/ui.js";
 import { initRedis } from "@/framework/redis/client.js";
 import { storage } from "@/framework/storage/storage.js";
+import { ensureAdminOnStartup } from "@/modules/auth/helpers/auto-admin.js";
 
 /**
  * Why: Assembles app kernel and boots all framework dependencies.
@@ -25,6 +26,7 @@ export async function createKernel() {
   const app = createHttpApp();
 
   await initDatabase();
+  await ensureAdminOnStartup();
   await bootQueueJobs();
   await registerModuleRoutes(app);
 
