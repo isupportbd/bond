@@ -25,8 +25,8 @@ async function startNode(
   const [{ serve }, { createServer }] = await Promise.all([import("@hono/node-server"), import("node:http")]);
 
   const server = websocket?.node
-    ? serve({ fetch: app.fetch, port, createServer, websocket: { server: websocket.node } })
-    : serve({ fetch: app.fetch, port, createServer });
+    ? serve({ fetch: app.fetch, hostname: "0.0.0.0", port, createServer, websocket: { server: websocket.node } })
+    : serve({ fetch: app.fetch, hostname: "0.0.0.0", port, createServer });
   return {
     native: server,
     address: () => server.address(),
@@ -56,6 +56,7 @@ async function startBun(
       }
       return app.fetch(req);
     },
+    hostname: "0.0.0.0",
     port,
     idleTimeout: 120
   };
@@ -76,7 +77,7 @@ async function startBun(
     native: serverInstance,
     address: () =>
       ({
-        address: serverInstance.hostname || "localhost",
+        address: serverInstance.hostname || "0.0.0.0",
         family: "IPv4",
         port: serverInstance.port
       }) as AddressInfo,

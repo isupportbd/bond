@@ -25,8 +25,12 @@ export async function createKernel() {
 
   const app = createHttpApp();
 
-  await initDatabase();
-  await ensureAdminOnStartup();
+  try {
+    await initDatabase();
+    await ensureAdminOnStartup();
+  } catch (dbError: any) {
+    console.error("⚠️  Database initialization notice on startup:", dbError?.message || dbError);
+  }
   await bootQueueJobs();
   await registerModuleRoutes(app);
 
