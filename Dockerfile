@@ -51,5 +51,9 @@ RUN chmod +x /app/docker-entrypoint.sh
 # Expose default HTTP port
 EXPOSE 3000
 
+# Healthcheck to report green status in Coolify
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD curl -f http://localhost:3000/health || exit 1
+
 # Run entrypoint script
 ENTRYPOINT ["/app/docker-entrypoint.sh"]
