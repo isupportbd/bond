@@ -24,7 +24,7 @@ import {
 } from "./auth.helpers.js";
 
 /**
- * 1. User Registration with mandatory Email OTP
+ * 1. User Registration (Direct signup without OTP requirement)
  * Route: POST /auth/register
  */
 export const register: Handler = async (c: any) => {
@@ -37,19 +37,6 @@ export const register: Handler = async (c: any) => {
     });
 
     if (existingUser) {
-      // If user exists and is not verified, allow them to re-verify with new OTP
-      if (!existingUser.emailVerifiedAt) {
-        const otp = await generateAndSaveOtp(cleanEmail, "signup", 10);
-        await mail.sendSignupOtpMail(cleanEmail, existingUser.name, otp);
-        return c.json(
-          {
-            message: "Account already exists but is unverified. A 6-digit verification code has been sent to your email.",
-            requireOtp: true,
-            email: cleanEmail
-          },
-          HttpStatusCodes.OK
-        );
-      }
       return c.json({ message: "An account with this email already exists" }, HttpStatusCodes.UNPROCESSABLE_ENTITY);
     }
 
@@ -61,7 +48,8 @@ export const register: Handler = async (c: any) => {
       name: body.name.trim(),
       email: cleanEmail,
       password: await password.hashPassword(body.password),
-      roleId: defaultRole?.id ?? null
+      roleId: defaultRole?.id ?? null,
+      emailVerifiedAt: new Date()
     });
 
     const insertedId = Number((insertResult as any)[0]?.insertId ?? (insertResult as any).insertId);
@@ -70,15 +58,23 @@ export const register: Handler = async (c: any) => {
       with: { role: true }
     });
 
-    // Generate & send 6-digit Signup OTP
-    const otp = await generateAndSaveOtp(cleanEmail, "signup", 10);
-    await mail.sendSignupOtpMail(cleanEmail, body.name, otp);
+    if (!user) {
+      return c.json({ message: "Failed to create user" }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
+    }
+
+    await revokeCurrentRefreshToken(c);
+    const tokens = await issueTokens(c, user, { remember: false });
 
     return c.json(
       {
-        message: "Registration successful. A 6-digit verification code has been sent to your email.",
-        requireOtp: true,
-        email: cleanEmail
+        message: "Registration successful! You are now logged in.",
+        requireOtp: false,
+        data: {
+          user: sanitizeUser(user),
+          access_token: tokens.accessToken,
+          refresh_token: tokens.refreshToken,
+          token_type: "Bearer"
+        }
       },
       HttpStatusCodes.CREATED
     );
@@ -139,7 +135,7 @@ export const verifySignupOtp: Handler = async (c: any) => {
 };
 
 /**
- * 3. User Login - Validates Credentials and Dispatches 2FA Login OTP
+ * 3. User Login - Validates Credentials and Directly Logs In
  * Route: POST /auth/login
  */
 export const login: Handler = async (c: any) => {
@@ -156,15 +152,19 @@ export const login: Handler = async (c: any) => {
       return c.json({ message: "Invalid email or password" }, HttpStatusCodes.UNAUTHORIZED);
     }
 
-    // Generate 6-digit Login OTP (Valid for 5 minutes)
-    const otp = await generateAndSaveOtp(cleanEmail, "login", 5);
-    await mail.sendLoginOtpMail(cleanEmail, user.name, otp);
+    await revokeCurrentRefreshToken(c);
+    const tokens = await issueTokens(c, user, { remember: !!body.remember });
 
     return c.json(
       {
-        message: "A 6-digit login verification code has been sent to your email address.",
-        requireOtp: true,
-        email: cleanEmail
+        message: "Login successful! Welcome back.",
+        requireOtp: false,
+        data: {
+          user: sanitizeUser(user),
+          access_token: tokens.accessToken,
+          refresh_token: tokens.refreshToken,
+          token_type: "Bearer"
+        }
       },
       HttpStatusCodes.OK
     );
