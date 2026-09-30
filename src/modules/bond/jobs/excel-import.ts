@@ -1,5 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { sql } from "drizzle-orm";
 import { db, shouldQueue } from "@/framework/facade.js";
 import { bondRecords } from "@/modules/bond/database/models/bond.js";
 import { parseBondExcel } from "@/modules/bond/helpers/excel-parser.js";
@@ -12,7 +13,7 @@ export interface ExcelImportJobData {
 /**
  * Queue Handler for Large Background Excel/CSV Imports (Lakhs of records)
  * - Safe memory chunking (1,000 rows per batch)
- * - Directly streams records into bondRecords table
+ * - Directly streams records into bondRecords table with automated (piNumber, piDate) upsert replacement
  */
 shouldQueue("bond.excel-import", "default", async (job) => {
   const { filePath, originalName } = job.data as ExcelImportJobData;
@@ -67,7 +68,7 @@ shouldQueue("bond.excel-import", "default", async (job) => {
         beneficiaryAddress: r.beneficiaryAddress || null,
         beneficiaryIrc: r.beneficiaryIrc || null,
         beneficiaryErc: r.beneficiaryErc || null,
-        piNumber: r.piNumber || null,
+        piNumber: r.piNumber ? String(r.piNumber).trim() : null,
         piDate: r.piDate || null,
         bondLicense: r.bondLicense || null,
         accepted: r.accepted || null,
@@ -76,7 +77,65 @@ shouldQueue("bond.excel-import", "default", async (job) => {
         entryDate: r.entryDate || null
       }));
 
-      await db.insert(bondRecords).values(recordsToInsert);
+      // Split rows into keyed (composite unique) and unkeyed
+      const keyedMap = new Map<string, typeof recordsToInsert[0]>();
+      const unkeyedRows: typeof recordsToInsert = [];
+
+      for (const row of recordsToInsert) {
+        if (row.piNumber && row.piDate && !isNaN(row.piDate.getTime())) {
+          const key = `${row.piNumber.toUpperCase()}__${row.piDate.toISOString()}`;
+          keyedMap.set(key, row);
+        } else {
+          unkeyedRows.push(row);
+        }
+      }
+
+      const keyedRows = Array.from(keyedMap.values());
+
+      if (keyedRows.length > 0) {
+        await db
+          .insert(bondRecords)
+          .values(keyedRows)
+          .onConflictDoUpdate({
+            target: [bondRecords.piNumber, bondRecords.piDate],
+            set: {
+              bankName: sql`excluded.bank_name`,
+              branchName: sql`excluded.branch_name`,
+              adsCode: sql`excluded.ads_code`,
+              lcYear: sql`excluded.lc_year`,
+              lcNature: sql`excluded.lc_nature`,
+              lcSerial: sql`excluded.lc_serial`,
+              lcId: sql`excluded.lc_id`,
+              lcValue: sql`excluded.lc_value`,
+              currency: sql`excluded.currency`,
+              lcDate: sql`excluded.lc_date`,
+              lcExpiryDate: sql`excluded.lc_expiry_date`,
+              bbUsansePeriod: sql`excluded.bb_usanse_period`,
+              lastShipDate: sql`excluded.last_ship_date`,
+              proceedsDate: sql`excluded.proceeds_date`,
+              irc: sql`excluded.irc`,
+              exporterInfo: sql`excluded.exporter_info`,
+              applicantName: sql`excluded.applicant_name`,
+              exportLcNumber: sql`excluded.export_lc_number`,
+              beneficiaryBank: sql`excluded.beneficiary_bank`,
+              beneficiaryBranch: sql`excluded.beneficiary_branch`,
+              beneficiaryName: sql`excluded.beneficiary_name`,
+              beneficiaryAddress: sql`excluded.beneficiary_address`,
+              beneficiaryIrc: sql`excluded.beneficiary_irc`,
+              beneficiaryErc: sql`excluded.beneficiary_erc`,
+              bondLicense: sql`excluded.bond_license`,
+              accepted: sql`excluded.accepted`,
+              cancelYn: sql`excluded.cancel_yn`,
+              cancelCause: sql`excluded.cancel_cause`,
+              entryDate: sql`excluded.entry_date`,
+              updatedAt: new Date()
+            }
+          });
+      }
+
+      if (unkeyedRows.length > 0) {
+        await db.insert(bondRecords).values(unkeyedRows);
+      }
 
       // Yield event loop
       await new Promise((resolve) => setTimeout(resolve, 10));

@@ -139,7 +139,7 @@ export const processUploadChunk: Handler = async (c: any) => {
       beneficiaryAddress: r.beneficiaryAddress || null,
       beneficiaryIrc: r.beneficiaryIrc || null,
       beneficiaryErc: r.beneficiaryErc || null,
-      piNumber: r.piNumber || null,
+      piNumber: r.piNumber ? String(r.piNumber).trim() : null,
       piDate: r.piDate ? new Date(r.piDate) : null,
       bondLicense: r.bondLicense || null,
       accepted: r.accepted || null,
@@ -148,18 +148,76 @@ export const processUploadChunk: Handler = async (c: any) => {
       entryDate: r.entryDate ? new Date(r.entryDate) : null
     }));
 
-    await db.insert(bondRecords).values(rowsToInsert);
+    // Split rows: those with composite unique key (piNumber + piDate) vs others
+    const keyedMap = new Map<string, typeof rowsToInsert[0]>();
+    const unkeyedRows: typeof rowsToInsert = [];
+
+    for (const row of rowsToInsert) {
+      if (row.piNumber && row.piDate && !isNaN(row.piDate.getTime())) {
+        const key = `${row.piNumber.toUpperCase()}__${row.piDate.toISOString()}`;
+        keyedMap.set(key, row); // Later row in file overrides earlier duplicate in chunk
+      } else {
+        unkeyedRows.push(row);
+      }
+    }
+
+    const keyedRows = Array.from(keyedMap.values());
+
+    if (keyedRows.length > 0) {
+      await db
+        .insert(bondRecords)
+        .values(keyedRows)
+        .onConflictDoUpdate({
+          target: [bondRecords.piNumber, bondRecords.piDate],
+          set: {
+            bankName: sql`excluded.bank_name`,
+            branchName: sql`excluded.branch_name`,
+            adsCode: sql`excluded.ads_code`,
+            lcYear: sql`excluded.lc_year`,
+            lcNature: sql`excluded.lc_nature`,
+            lcSerial: sql`excluded.lc_serial`,
+            lcId: sql`excluded.lc_id`,
+            lcValue: sql`excluded.lc_value`,
+            currency: sql`excluded.currency`,
+            lcDate: sql`excluded.lc_date`,
+            lcExpiryDate: sql`excluded.lc_expiry_date`,
+            bbUsansePeriod: sql`excluded.bb_usanse_period`,
+            lastShipDate: sql`excluded.last_ship_date`,
+            proceedsDate: sql`excluded.proceeds_date`,
+            irc: sql`excluded.irc`,
+            exporterInfo: sql`excluded.exporter_info`,
+            applicantName: sql`excluded.applicant_name`,
+            exportLcNumber: sql`excluded.export_lc_number`,
+            beneficiaryBank: sql`excluded.beneficiary_bank`,
+            beneficiaryBranch: sql`excluded.beneficiary_branch`,
+            beneficiaryName: sql`excluded.beneficiary_name`,
+            beneficiaryAddress: sql`excluded.beneficiary_address`,
+            beneficiaryIrc: sql`excluded.beneficiary_irc`,
+            beneficiaryErc: sql`excluded.beneficiary_erc`,
+            bondLicense: sql`excluded.bond_license`,
+            accepted: sql`excluded.accepted`,
+            cancelYn: sql`excluded.cancel_yn`,
+            cancelCause: sql`excluded.cancel_cause`,
+            entryDate: sql`excluded.entry_date`,
+            updatedAt: new Date()
+          }
+        });
+    }
+
+    if (unkeyedRows.length > 0) {
+      await db.insert(bondRecords).values(unkeyedRows);
+    }
 
     return c.json({
-      message: `Chunk ${chunkIndex}/${totalChunks} inserted successfully`,
+      message: `Chunk ${chunkIndex}/${totalChunks} processed successfully`,
       data: {
         chunkIndex,
         totalChunks,
-        inserted: rowsToInsert.length
+        insertedOrUpdated: keyedRows.length + unkeyedRows.length
       }
     });
   } catch (error: any) {
-    console.error("Chunk insert error:", error);
+    console.error("Chunk insert/upsert error:", error);
     return c.json({ message: error?.message || "Failed to process chunk" }, HttpStatusCodes.INTERNAL_SERVER_ERROR);
   }
 };
