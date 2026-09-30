@@ -44,17 +44,19 @@ export const register: Handler = async (c: any) => {
       where: eq(roles.name, "user")
     });
 
-    const insertResult = await db.insert(users).values({
-      name: body.name.trim(),
-      email: cleanEmail,
-      password: await password.hashPassword(body.password),
-      roleId: defaultRole?.id ?? null,
-      emailVerifiedAt: new Date()
-    });
+    const [insertedUser] = await db
+      .insert(users)
+      .values({
+        name: body.name.trim(),
+        email: cleanEmail,
+        password: await password.hashPassword(body.password),
+        roleId: defaultRole?.id ?? null,
+        emailVerifiedAt: new Date()
+      })
+      .returning();
 
-    const insertedId = Number((insertResult as any)[0]?.insertId ?? (insertResult as any).insertId);
     const user = await db.query.users.findFirst({
-      where: eq(users.id, insertedId || 1),
+      where: eq(users.id, insertedUser.id),
       with: { role: true }
     });
 
