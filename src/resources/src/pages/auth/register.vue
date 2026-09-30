@@ -64,7 +64,7 @@
                   v-model="password"
                   :type="showPassword ? 'text' : 'password'"
                   class="form-control border-start-0 border-end-0"
-                  placeholder="Min 6 chars (upper, lower, special)"
+                  placeholder="Minimum 6 characters"
                   required />
                 <button
                   type="button"
@@ -73,7 +73,7 @@
                   <i :class="showPassword ? 'bi bi-eye-slash' : 'bi bi-eye'"></i>
                 </button>
               </div>
-              <div class="form-text small text-muted">Must contain uppercase, lowercase & special character</div>
+              <div class="form-text small text-muted">Password must be at least 6 characters long</div>
             </div>
 
             <div class="mb-4">

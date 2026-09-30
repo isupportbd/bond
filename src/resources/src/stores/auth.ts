@@ -36,6 +36,21 @@ async function request<T>(method: "GET" | "POST", path: string, payload?: unknow
     return response.data;
   } catch (error: unknown) {
     if (axios.isAxiosError(error)) {
+      const data = error.response?.data as any;
+      if (data?.message) {
+        throw new Error(String(data.message));
+      }
+      if (typeof data?.error === "string") {
+        throw new Error(data.error);
+      }
+      if (data?.error?.issues && Array.isArray(data.error.issues) && data.error.issues.length > 0) {
+        const issue = data.error.issues[0];
+        throw new Error(issue.message || `Validation error on ${issue.path?.join(".")}`);
+      }
+      if (Array.isArray(data?.errors) && data.errors.length > 0) {
+        const first = data.errors[0];
+        throw new Error(first.message || JSON.stringify(first));
+      }
       throw new Error(String(error.response?.data?.message || error.message || "Request failed"));
     }
     throw new Error("Request failed");

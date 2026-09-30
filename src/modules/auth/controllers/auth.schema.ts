@@ -26,13 +26,7 @@ export const RegisterSchema = z
   .object({
     name: z.string().min(2).max(100),
     email: z.email(),
-    password: z
-      .string()
-      .min(6)
-      .max(100)
-      .regex(/[a-z]/, "Password must contain lowercase letter")
-      .regex(/[A-Z]/, "Password must contain uppercase letter")
-      .regex(/[^A-Za-z0-9]/, "Password must contain special character"),
+    password: z.string().min(6, "Password must be at least 6 characters").max(100),
     password_confirmation: z.string()
   })
   .superRefine((data, ctx) => {
@@ -76,13 +70,7 @@ export const ResetPasswordSchema = z
   .object({
     email: z.email(),
     otp: z.string().min(6).max(6),
-    password: z
-      .string()
-      .min(6)
-      .max(100)
-      .regex(/[a-z]/, "Password must contain lowercase letter")
-      .regex(/[A-Z]/, "Password must contain uppercase letter")
-      .regex(/[^A-Za-z0-9]/, "Password must contain special character"),
+    password: z.string().min(6, "Password must be at least 6 characters").max(100),
     password_confirmation: z.string()
   })
   .superRefine((data, ctx) => {
